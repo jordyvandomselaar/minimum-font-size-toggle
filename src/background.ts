@@ -28,6 +28,7 @@ function resetFontSize(): void {
   });
 }
 
+
 function restoreFontSize(): void {
   if (wasResetForBlocklist && lastKnownFontSize > DEFAULT_FONT_SIZE) {
     getSizes((settings) => {
@@ -121,8 +122,8 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
 
 // Monitor tab updates (navigation within a tab)
 chrome.tabs.onUpdated.addListener((_, changeInfo, tab) => {
-  // Only check when the URL has changed and the page is complete
-  if (changeInfo.status === 'complete' && tab.url) {
+  // Check on both loading and complete to catch early and ensure final state
+  if ((changeInfo.status === 'loading' || changeInfo.status === 'complete') && tab.url) {
     checkAndUpdateFontForUrl(tab.url);
   }
 });
@@ -139,6 +140,21 @@ chrome.runtime.onMessage.addListener((message) => {
         chrome.fontSettings.setMinimumFontSize({ pixelSize: message.size });
         isLargeFontActive = message.size > DEFAULT_FONT_SIZE;
         wasResetForBlocklist = false; // This is a manual change, not a blocklist reset
+      }
+    });
+  } else if (message.action === 'immediateReset') {
+    // Immediate reset from content script for blocked pages
+    getSizes((settings) => {
+      if (isUrlInBlocklist(message.url, settings.blocklist)) {
+        // Get current font size and reset immediately
+        chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
+          if (details.pixelSize > DEFAULT_FONT_SIZE) {
+            lastKnownFontSize = details.pixelSize;
+            chrome.fontSettings.setMinimumFontSize({ pixelSize: DEFAULT_FONT_SIZE });
+            isLargeFontActive = false;
+            wasResetForBlocklist = true;
+          }
+        });
       }
     });
   }

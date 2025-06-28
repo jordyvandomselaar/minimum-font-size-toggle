@@ -4,6 +4,24 @@ const DEFAULT_BLOCKLIST: string[] = [];
 
 let currentUrl = '';
 
+// Immediate blocklist check to prevent flicker
+function immediateBlocklistCheck(): void {
+  chrome.storage.sync.get({
+    blocklist: DEFAULT_BLOCKLIST
+  }, (items) => {
+    if (isUrlInBlocklist(window.location.href, items.blocklist)) {
+      // Send immediate reset message
+      chrome.runtime.sendMessage({
+        action: 'immediateReset',
+        url: window.location.href
+      });
+    }
+  });
+}
+
+// Run immediate check as soon as script loads
+immediateBlocklistCheck();
+
 let panelElement: HTMLElement | null = null;
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
@@ -560,6 +578,11 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'toggleFontPanel') {
     togglePanel();
   }
+});
+
+// Also check on DOMContentLoaded for additional safety
+document.addEventListener('DOMContentLoaded', () => {
+  immediateBlocklistCheck();
 });
 
 // Close panel when clicking outside
