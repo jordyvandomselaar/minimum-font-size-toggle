@@ -1,6 +1,4 @@
-import { FontSizeSettings } from './types';
 
-const DEFAULT_SMALL = 10;
 const DEFAULT_LARGE = 18;
 
 let panelElement: HTMLElement | null = null;
@@ -17,27 +15,17 @@ function createFloatingPanel(): HTMLElement {
     </div>
     <div class="mfst-panel__content">
       <div class="mfst-setting">
-        <label class="mfst-setting__label">Small Font Size</label>
+        <label class="mfst-setting__label">Font Size</label>
         <div class="mfst-setting__input-container">
-          <input type="number" id="smallSize" min="6" max="72" step="1">
+          <input type="number" id="fontSize" min="6" max="72" step="1">
           <span>px</span>
-          <input type="range" id="smallRange" min="6" max="72" step="1">
+          <input type="range" id="fontRange" min="6" max="72" step="1">
         </div>
-        <div class="mfst-setting__current-size" id="smallPreview">Current: 10px</div>
-      </div>
-      
-      <div class="mfst-setting">
-        <label class="mfst-setting__label">Large Font Size</label>
-        <div class="mfst-setting__input-container">
-          <input type="number" id="largeSize" min="6" max="72" step="1">
-          <span>px</span>
-          <input type="range" id="largeRange" min="6" max="72" step="1">
-        </div>
-        <div class="mfst-setting__current-size" id="largePreview">Current: 18px</div>
+        <div class="mfst-setting__current-size" id="fontPreview">Current: 18px</div>
       </div>
       
       <div class="mfst-panel__button-container">
-        <button id="applyNow" class="mfst-btn mfst-btn--apply">Apply Now</button>
+        <button id="toggleFont" class="mfst-btn mfst-btn--toggle">Toggle Font Size</button>
         <button id="saveSettings" class="mfst-btn mfst-btn--save">Save</button>
         <button id="resetDefaults" class="mfst-btn mfst-btn--reset">Reset</button>
       </div>
@@ -182,13 +170,13 @@ function createFloatingPanel(): HTMLElement {
       opacity: 1;
     }
     
-    #font-size-panel .mfst-btn--apply {
+    #font-size-panel .mfst-btn--toggle {
       background: #28a745;
       color: white;
       flex: 1;
     }
     
-    #font-size-panel .mfst-btn--apply:hover {
+    #font-size-panel .mfst-btn--toggle:hover {
       background: #218838;
     }
     
@@ -251,21 +239,21 @@ function showStatus(message: string, isSuccess: boolean = true): void {
   }
 }
 
-function updatePreview(size: number, isSmall: boolean): void {
-  const currentSizeElement = document.getElementById(isSmall ? 'smallPreview' : 'largePreview');
+function updatePreview(size: number): void {
+  const currentSizeElement = document.getElementById('fontPreview');
   if (currentSizeElement) {
     currentSizeElement.textContent = `Current: ${size}px`;
   }
 }
 
-function syncInputs(value: string, isSmall: boolean): void {
-  const numberInput = document.getElementById(isSmall ? 'smallSize' : 'largeSize') as HTMLInputElement;
-  const rangeInput = document.getElementById(isSmall ? 'smallRange' : 'largeRange') as HTMLInputElement;
+function syncInputs(value: string): void {
+  const numberInput = document.getElementById('fontSize') as HTMLInputElement;
+  const rangeInput = document.getElementById('fontRange') as HTMLInputElement;
   
   if (numberInput && rangeInput) {
     numberInput.value = value;
     rangeInput.value = value;
-    updatePreview(parseInt(value), isSmall);
+    updatePreview(parseInt(value));
   }
 }
 
@@ -274,119 +262,82 @@ function validateInput(value: string): boolean {
   return !isNaN(num) && num >= 6 && num <= 72;
 }
 
-function applyFontSize(): void {
-  const smallSizeElement = document.getElementById('smallSize') as HTMLInputElement;
-  const largeSizeElement = document.getElementById('largeSize') as HTMLInputElement;
+function toggleFontSize(): void {
+  const fontSizeElement = document.getElementById('fontSize') as HTMLInputElement;
   
-  const smallSize = smallSizeElement.value;
-  const largeSize = largeSizeElement.value;
+  const fontSize = fontSizeElement.value;
 
-  if (!validateInput(smallSize) || !validateInput(largeSize)) {
-    showStatus('Invalid font sizes', false);
+  if (!validateInput(fontSize)) {
+    showStatus('Invalid font size', false);
     return;
   }
 
-  const smallNum = parseInt(smallSize);
-  const largeNum = parseInt(largeSize);
-
-  if (smallNum >= largeNum) {
-    showStatus('Small must be < large', false);
-    return;
-  }
+  const fontNum = parseInt(fontSize);
 
   chrome.runtime.sendMessage({
-    action: 'applyFontSize',
-    size: largeNum
+    action: 'toggleFontSize',
+    size: fontNum
   });
   
-  showStatus('Applied!');
+  showStatus('Toggled!');
 }
 
 function saveSettings(): void {
-  const smallSizeElement = document.getElementById('smallSize') as HTMLInputElement;
-  const largeSizeElement = document.getElementById('largeSize') as HTMLInputElement;
+  const fontSizeElement = document.getElementById('fontSize') as HTMLInputElement;
   
-  const smallSize = smallSizeElement.value;
-  const largeSize = largeSizeElement.value;
+  const fontSize = fontSizeElement.value;
 
-  if (!validateInput(smallSize) || !validateInput(largeSize)) {
-    showStatus('Invalid font sizes', false);
+  if (!validateInput(fontSize)) {
+    showStatus('Invalid font size', false);
     return;
   }
 
-  const smallNum = parseInt(smallSize);
-  const largeNum = parseInt(largeSize);
-
-  if (smallNum >= largeNum) {
-    showStatus('Small must be < large', false);
-    return;
-  }
+  const fontNum = parseInt(fontSize);
 
   chrome.storage.sync.set({
-    smallMinimumFontSize: smallNum,
-    largeMinimumFontSize: largeNum
+    minimumFontSize: fontNum
   }, () => {
     showStatus('Saved!');
   });
 }
 
 function resetToDefaults(): void {
-  syncInputs(DEFAULT_SMALL.toString(), true);
-  syncInputs(DEFAULT_LARGE.toString(), false);
+  syncInputs(DEFAULT_LARGE.toString());
   showStatus('Reset to defaults');
 }
 
 function loadSettings(): void {
   chrome.storage.sync.get({
-    smallMinimumFontSize: DEFAULT_SMALL,
-    largeMinimumFontSize: DEFAULT_LARGE
+    minimumFontSize: DEFAULT_LARGE
   }, (items) => {
-    const settings = items as FontSizeSettings;
-    syncInputs(settings.smallMinimumFontSize.toString(), true);
-    syncInputs(settings.largeMinimumFontSize.toString(), false);
+    syncInputs(items.minimumFontSize.toString());
   });
 }
 
 function setupPanelEventListeners(): void {
-  const smallSizeInput = document.getElementById('smallSize') as HTMLInputElement;
-  const largeSizeInput = document.getElementById('largeSize') as HTMLInputElement;
-  const smallRangeInput = document.getElementById('smallRange') as HTMLInputElement;
-  const largeRangeInput = document.getElementById('largeRange') as HTMLInputElement;
-  const applyButton = document.getElementById('applyNow');
+  const fontSizeInput = document.getElementById('fontSize') as HTMLInputElement;
+  const fontRangeInput = document.getElementById('fontRange') as HTMLInputElement;
+  const toggleButton = document.getElementById('toggleFont');
   const saveButton = document.getElementById('saveSettings');
   const resetButton = document.getElementById('resetDefaults');
   const closeButton = document.getElementById('closeFontPanel');
 
-  if (smallSizeInput && smallRangeInput) {
-    smallSizeInput.addEventListener('input', (e) => {
+  if (fontSizeInput && fontRangeInput) {
+    fontSizeInput.addEventListener('input', (e) => {
       const value = (e.target as HTMLInputElement).value;
       if (validateInput(value)) {
-        syncInputs(value, true);
+        syncInputs(value);
       }
     });
 
-    smallRangeInput.addEventListener('input', (e) => {
+    fontRangeInput.addEventListener('input', (e) => {
       const value = (e.target as HTMLInputElement).value;
-      syncInputs(value, true);
+      syncInputs(value);
     });
   }
 
-  if (largeSizeInput && largeRangeInput) {
-    largeSizeInput.addEventListener('input', (e) => {
-      const value = (e.target as HTMLInputElement).value;
-      if (validateInput(value)) {
-        syncInputs(value, false);
-      }
-    });
-
-    largeRangeInput.addEventListener('input', (e) => {
-      const value = (e.target as HTMLInputElement).value;
-      syncInputs(value, false);
-    });
-  }
-
-  if (applyButton) {
-    applyButton.addEventListener('click', applyFontSize);
+  if (toggleButton) {
+    toggleButton.addEventListener('click', toggleFontSize);
   }
 
   if (saveButton) {
@@ -487,7 +438,7 @@ function togglePanel(): void {
 }
 
 // Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'toggleFontPanel') {
     togglePanel();
   }

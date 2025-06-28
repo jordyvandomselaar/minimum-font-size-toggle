@@ -5,7 +5,8 @@
       "Bash(cp:*)",
       "Bash(bun install:*)",
       "Bash(bun run:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

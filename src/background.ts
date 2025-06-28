@@ -1,17 +1,25 @@
 import { FontSizeSettings, FontSizeDetails } from './types';
 
-const DEFAULT_SMALL = 10;
 const DEFAULT_LARGE = 18;
+const DEFAULT_FONT_SIZE = 0; // 0 means browser default
 
-function toggleSize(currentSize: number, smallSize: number, largeSize: number): void {
-  const newSize = currentSize <= smallSize ? largeSize : smallSize;
-  chrome.fontSettings.setMinimumFontSize({ pixelSize: newSize });
+let isLargeFontActive = false;
+
+function toggleSize(currentSize: number, targetSize: number): void {
+  if (isLargeFontActive || currentSize >= targetSize) {
+    // Switch back to default (0 = browser default)
+    chrome.fontSettings.setMinimumFontSize({ pixelSize: DEFAULT_FONT_SIZE });
+    isLargeFontActive = false;
+  } else {
+    // Apply the large font size
+    chrome.fontSettings.setMinimumFontSize({ pixelSize: targetSize });
+    isLargeFontActive = true;
+  }
 }
 
 function getSizes(callback: (result: FontSizeSettings) => void): void {
   chrome.storage.sync.get({
-    smallMinimumFontSize: DEFAULT_SMALL,
-    largeMinimumFontSize: DEFAULT_LARGE
+    minimumFontSize: DEFAULT_LARGE
   }, (items) => callback(items as FontSizeSettings));
 }
 
@@ -20,8 +28,7 @@ chrome.action.onClicked.addListener(() => {
     getSizes((results: FontSizeSettings) => {
       toggleSize(
         details.pixelSize,
-        parseFloat(results.smallMinimumFontSize.toString()),
-        parseFloat(results.largeMinimumFontSize.toString())
+        parseFloat(results.minimumFontSize.toString())
       );
     });
   });
@@ -42,7 +49,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === 'applyFontSize') {
-    chrome.fontSettings.setMinimumFontSize({ pixelSize: message.size });
+  if (message.action === 'toggleFontSize') {
+    chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
+      toggleSize(details.pixelSize, message.size);
+    });
   }
 });

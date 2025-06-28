@@ -1,6 +1,5 @@
 export interface FontSizeSettings {
-  smallMinimumFontSize: number;
-  largeMinimumFontSize: number;
+  minimumFontSize: number;
 }
 
 export interface FontSizeDetails {

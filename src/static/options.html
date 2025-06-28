@@ -179,33 +179,20 @@
         <div class="mfst-container">
             <h1>Font Size Toggle Settings</h1>
             <p class="mfst-description">
-                Configure the two font sizes that will be toggled when you click the extension icon.
-                Use the sliders or input fields to set your preferred sizes.
+                Configure the font size that will be applied when you click the extension icon.
+                Click again to return to default page fonts.
             </p>
             
             <div class="mfst-setting">
-                <label class="mfst-setting__label">Small Font Size</label>
+                <label class="mfst-setting__label">Font Size</label>
                 <div class="mfst-setting__input-container">
-                    <input type="number" id="smallSize" min="6" max="72" step="1">
+                    <input type="number" id="fontSize" min="6" max="72" step="1">
                     <span>px</span>
-                    <input type="range" id="smallRange" min="6" max="72" step="1">
+                    <input type="range" id="fontRange" min="6" max="72" step="1">
                 </div>
-                <div class="mfst-setting__current-size" id="smallPreview">Current: 10px</div>
-                <div class="mfst-setting__preview-text" id="smallPreviewText" style="font-size: 10px;">
-                    This is how text will look with the small font size setting.
-                </div>
-            </div>
-            
-            <div class="mfst-setting">
-                <label class="mfst-setting__label">Large Font Size</label>
-                <div class="mfst-setting__input-container">
-                    <input type="number" id="largeSize" min="6" max="72" step="1">
-                    <span>px</span>
-                    <input type="range" id="largeRange" min="6" max="72" step="1">
-                </div>
-                <div class="mfst-setting__current-size" id="largePreview">Current: 18px</div>
-                <div class="mfst-setting__preview-text" id="largePreviewText" style="font-size: 18px;">
-                    This is how text will look with the large font size setting.
+                <div class="mfst-setting__current-size" id="fontPreview">Current: 18px</div>
+                <div class="mfst-setting__preview-text" id="fontPreviewText" style="font-size: 18px;">
+                    This is how text will look with the selected font size.
                 </div>
             </div>
             

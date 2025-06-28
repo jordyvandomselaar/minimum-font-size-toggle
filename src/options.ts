@@ -1,11 +1,10 @@
 import { FontSizeSettings } from './types';
 
-const DEFAULT_SMALL = 10;
 const DEFAULT_LARGE = 18;
 
-function updatePreview(size: number, isSmall: boolean): void {
-  const previewElement = document.getElementById(isSmall ? 'smallPreviewText' : 'largePreviewText');
-  const currentSizeElement = document.getElementById(isSmall ? 'smallPreview' : 'largePreview');
+function updatePreview(size: number): void {
+  const previewElement = document.getElementById('fontPreviewText');
+  const currentSizeElement = document.getElementById('fontPreview');
   
   if (previewElement) {
     previewElement.style.fontSize = `${size}px`;
@@ -16,14 +15,14 @@ function updatePreview(size: number, isSmall: boolean): void {
   }
 }
 
-function syncInputs(value: string, isSmall: boolean): void {
-  const numberInput = document.getElementById(isSmall ? 'smallSize' : 'largeSize') as HTMLInputElement;
-  const rangeInput = document.getElementById(isSmall ? 'smallRange' : 'largeRange') as HTMLInputElement;
+function syncInputs(value: string): void {
+  const numberInput = document.getElementById('fontSize') as HTMLInputElement;
+  const rangeInput = document.getElementById('fontRange') as HTMLInputElement;
   
   if (numberInput && rangeInput) {
     numberInput.value = value;
     rangeInput.value = value;
-    updatePreview(parseInt(value), isSmall);
+    updatePreview(parseInt(value));
   }
 }
 
@@ -36,92 +35,64 @@ function showStatus(message: string, isSuccess: boolean = true): void {
   const status = document.getElementById('status');
   if (status) {
     status.textContent = message;
-    status.className = `status ${isSuccess ? 'success' : 'error'}`;
+    status.className = `mfst-status ${isSuccess ? 'mfst-status--success' : 'mfst-status--error'}`;
     
     setTimeout(() => {
-      status.className = 'status';
+      status.className = 'mfst-status';
     }, 3000);
   }
 }
 
 function saveOptions(): void {
-  const smallSizeElement = document.getElementById('smallSize') as HTMLInputElement;
-  const largeSizeElement = document.getElementById('largeSize') as HTMLInputElement;
+  const fontSizeElement = document.getElementById('fontSize') as HTMLInputElement;
   
-  const smallSize = smallSizeElement.value;
-  const largeSize = largeSizeElement.value;
+  const fontSize = fontSizeElement.value;
 
-  if (!validateInput(smallSize) || !validateInput(largeSize)) {
-    showStatus('Please enter valid font sizes between 6 and 72 pixels.', false);
+  if (!validateInput(fontSize)) {
+    showStatus('Please enter a valid font size between 6 and 72 pixels.', false);
     return;
   }
 
-  const smallNum = parseInt(smallSize);
-  const largeNum = parseInt(largeSize);
-
-  if (smallNum >= largeNum) {
-    showStatus('Small font size must be smaller than large font size.', false);
-    return;
-  }
+  const fontNum = parseInt(fontSize);
 
   chrome.storage.sync.set({
-    smallMinimumFontSize: smallNum,
-    largeMinimumFontSize: largeNum
+    minimumFontSize: fontNum
   }, () => {
     showStatus('Settings saved successfully!');
   });
 }
 
 function resetToDefaults(): void {
-  syncInputs(DEFAULT_SMALL.toString(), true);
-  syncInputs(DEFAULT_LARGE.toString(), false);
+  syncInputs(DEFAULT_LARGE.toString());
   showStatus('Settings reset to defaults. Click Save to apply.');
 }
 
 function restoreOptions(): void {
   chrome.storage.sync.get({
-    smallMinimumFontSize: DEFAULT_SMALL,
-    largeMinimumFontSize: DEFAULT_LARGE
+    minimumFontSize: DEFAULT_LARGE
   }, (items) => {
     const settings = items as FontSizeSettings;
-    syncInputs(settings.smallMinimumFontSize.toString(), true);
-    syncInputs(settings.largeMinimumFontSize.toString(), false);
+    syncInputs(settings.minimumFontSize.toString());
   });
 }
 
 function setupEventListeners(): void {
-  const smallSizeInput = document.getElementById('smallSize') as HTMLInputElement;
-  const largeSizeInput = document.getElementById('largeSize') as HTMLInputElement;
-  const smallRangeInput = document.getElementById('smallRange') as HTMLInputElement;
-  const largeRangeInput = document.getElementById('largeRange') as HTMLInputElement;
+  const fontSizeInput = document.getElementById('fontSize') as HTMLInputElement;
+  const fontRangeInput = document.getElementById('fontRange') as HTMLInputElement;
   const saveButton = document.getElementById('save');
   const resetButton = document.getElementById('reset');
 
-  if (smallSizeInput && smallRangeInput) {
-    smallSizeInput.addEventListener('input', (e) => {
+  if (fontSizeInput && fontRangeInput) {
+    fontSizeInput.addEventListener('input', (e) => {
       const value = (e.target as HTMLInputElement).value;
       if (validateInput(value)) {
-        syncInputs(value, true);
+        syncInputs(value);
       }
     });
 
-    smallRangeInput.addEventListener('input', (e) => {
+    fontRangeInput.addEventListener('input', (e) => {
       const value = (e.target as HTMLInputElement).value;
-      syncInputs(value, true);
-    });
-  }
-
-  if (largeSizeInput && largeRangeInput) {
-    largeSizeInput.addEventListener('input', (e) => {
-      const value = (e.target as HTMLInputElement).value;
-      if (validateInput(value)) {
-        syncInputs(value, false);
-      }
-    });
-
-    largeRangeInput.addEventListener('input', (e) => {
-      const value = (e.target as HTMLInputElement).value;
-      syncInputs(value, false);
+      syncInputs(value);
     });
   }
 
