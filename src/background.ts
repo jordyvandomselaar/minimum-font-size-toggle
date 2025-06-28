@@ -53,5 +53,7 @@ chrome.runtime.onMessage.addListener((message) => {
     chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
       toggleSize(details.pixelSize, message.size);
     });
+  } else if (message.action === 'setFontSize') {
+    chrome.fontSettings.setMinimumFontSize({ pixelSize: message.size });
   }
 });

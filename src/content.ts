@@ -25,7 +25,6 @@ function createFloatingPanel(): HTMLElement {
       </div>
       
       <div class="mfst-panel__button-container">
-        <button id="toggleFont" class="mfst-btn mfst-btn--toggle">Toggle Font Size</button>
         <button id="saveSettings" class="mfst-btn mfst-btn--save">Save</button>
         <button id="resetDefaults" class="mfst-btn mfst-btn--reset">Reset</button>
       </div>
@@ -170,15 +169,6 @@ function createFloatingPanel(): HTMLElement {
       opacity: 1;
     }
     
-    #font-size-panel .mfst-btn--toggle {
-      background: #28a745;
-      color: white;
-      flex: 1;
-    }
-    
-    #font-size-panel .mfst-btn--toggle:hover {
-      background: #218838;
-    }
     
     #font-size-panel .mfst-btn--save {
       background: #007acc;
@@ -246,7 +236,7 @@ function updatePreview(size: number): void {
   }
 }
 
-function syncInputs(value: string): void {
+function syncInputs(value: string, applyLive: boolean = false): void {
   const numberInput = document.getElementById('fontSize') as HTMLInputElement;
   const rangeInput = document.getElementById('fontRange') as HTMLInputElement;
   
@@ -254,6 +244,10 @@ function syncInputs(value: string): void {
     numberInput.value = value;
     rangeInput.value = value;
     updatePreview(parseInt(value));
+    
+    if (applyLive && validateInput(value)) {
+      applyFontSizeLive(parseInt(value));
+    }
   }
 }
 
@@ -262,24 +256,11 @@ function validateInput(value: string): boolean {
   return !isNaN(num) && num >= 6 && num <= 72;
 }
 
-function toggleFontSize(): void {
-  const fontSizeElement = document.getElementById('fontSize') as HTMLInputElement;
-  
-  const fontSize = fontSizeElement.value;
-
-  if (!validateInput(fontSize)) {
-    showStatus('Invalid font size', false);
-    return;
-  }
-
-  const fontNum = parseInt(fontSize);
-
+function applyFontSizeLive(fontSize: number): void {
   chrome.runtime.sendMessage({
-    action: 'toggleFontSize',
-    size: fontNum
+    action: 'setFontSize',
+    size: fontSize
   });
-  
-  showStatus('Toggled!');
 }
 
 function saveSettings(): void {
@@ -302,7 +283,7 @@ function saveSettings(): void {
 }
 
 function resetToDefaults(): void {
-  syncInputs(DEFAULT_LARGE.toString());
+  syncInputs(DEFAULT_LARGE.toString(), true);
   showStatus('Reset to defaults');
 }
 
@@ -317,7 +298,6 @@ function loadSettings(): void {
 function setupPanelEventListeners(): void {
   const fontSizeInput = document.getElementById('fontSize') as HTMLInputElement;
   const fontRangeInput = document.getElementById('fontRange') as HTMLInputElement;
-  const toggleButton = document.getElementById('toggleFont');
   const saveButton = document.getElementById('saveSettings');
   const resetButton = document.getElementById('resetDefaults');
   const closeButton = document.getElementById('closeFontPanel');
@@ -326,18 +306,14 @@ function setupPanelEventListeners(): void {
     fontSizeInput.addEventListener('input', (e) => {
       const value = (e.target as HTMLInputElement).value;
       if (validateInput(value)) {
-        syncInputs(value);
+        syncInputs(value, true);
       }
     });
 
     fontRangeInput.addEventListener('input', (e) => {
       const value = (e.target as HTMLInputElement).value;
-      syncInputs(value);
+      syncInputs(value, true);
     });
-  }
-
-  if (toggleButton) {
-    toggleButton.addEventListener('click', toggleFontSize);
   }
 
   if (saveButton) {
