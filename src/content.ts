@@ -3,17 +3,104 @@ const DEFAULT_LARGE = 18;
 const DEFAULT_BLOCKLIST: string[] = [];
 
 let currentUrl = '';
+let injectedStyle: HTMLStyleElement | null = null;
+
+// Immediate CSS injection to prevent flicker
+function injectImmediateFontCSS(isReset: boolean): void {
+  // Remove any existing injected style
+  if (injectedStyle) {
+    injectedStyle.remove();
+  }
+  
+  // Create and inject immediate CSS
+  injectedStyle = document.createElement('style');
+  injectedStyle.id = 'mfst-immediate-font';
+  
+  if (isReset) {
+    // For blocked sites: force normal font sizing
+    injectedStyle.textContent = `
+      * {
+        font-size: initial !important;
+        font-size: revert !important;
+      }
+      body {
+        font-size: 16px !important;
+      }
+    `;
+  } else {
+    // For non-blocked sites: ensure larger minimum font
+    injectedStyle.textContent = `
+      * {
+        font-size: max(1.125em, 18px) !important;
+      }
+    `;
+  }
+  
+  // Insert as early as possible
+  if (document.head) {
+    document.head.insertBefore(injectedStyle, document.head.firstChild);
+  } else {
+    // If head doesn't exist yet, inject into html or create head
+    const head = document.createElement('head');
+    head.appendChild(injectedStyle);
+    if (document.documentElement) {
+      document.documentElement.insertBefore(head, document.documentElement.firstChild);
+    }
+  }
+}
+
+// Remove injected CSS once proper font settings are applied
+function removeImmediateFontCSS(): void {
+  if (injectedStyle) {
+    // Add a delay to ensure the browser font settings have taken effect
+    setTimeout(() => {
+      if (injectedStyle) {
+        injectedStyle.remove();
+        injectedStyle = null;
+      }
+    }, 100);
+  }
+}
 
 // Immediate blocklist check to prevent flicker
 function immediateBlocklistCheck(): void {
   chrome.storage.sync.get({
-    blocklist: DEFAULT_BLOCKLIST
+    blocklist: DEFAULT_BLOCKLIST,
+    minimumFontSize: DEFAULT_LARGE
   }, (items) => {
-    if (isUrlInBlocklist(window.location.href, items.blocklist)) {
-      // Send immediate reset message
+    const isBlocked = isUrlInBlocklist(window.location.href, items.blocklist);
+    
+    if (isBlocked) {
+      // Immediately inject CSS to force reset font
+      injectImmediateFontCSS(true); // true = reset mode
+      
+      // Send immediate reset message for blocked pages
       chrome.runtime.sendMessage({
         action: 'immediateReset',
         url: window.location.href
+      });
+      
+      // Remove CSS after browser font settings apply
+      setTimeout(() => removeImmediateFontCSS(), 300);
+    } else {
+      // Check if we need to restore large font
+      chrome.runtime.sendMessage({
+        action: 'checkFontState',
+        url: window.location.href
+      }, (response) => {
+        if (response && response.shouldRestore) {
+          // Immediately inject CSS to show large font
+          injectImmediateFontCSS(false); // false = large font mode
+          
+          // Send immediate restore message
+          chrome.runtime.sendMessage({
+            action: 'immediateRestore',
+            url: window.location.href
+          });
+          
+          // Remove CSS after browser font settings apply
+          setTimeout(() => removeImmediateFontCSS(), 300);
+        }
       });
     }
   });
@@ -582,7 +669,24 @@ chrome.runtime.onMessage.addListener((message) => {
 
 // Also check on DOMContentLoaded for additional safety
 document.addEventListener('DOMContentLoaded', () => {
-  immediateBlocklistCheck();
+  // Only run the background communication, not CSS injection again
+  chrome.storage.sync.get({
+    blocklist: DEFAULT_BLOCKLIST
+  }, (items) => {
+    const isBlocked = isUrlInBlocklist(window.location.href, items.blocklist);
+    
+    if (isBlocked) {
+      chrome.runtime.sendMessage({
+        action: 'immediateReset',
+        url: window.location.href
+      });
+    } else {
+      chrome.runtime.sendMessage({
+        action: 'immediateRestore',
+        url: window.location.href
+      });
+    }
+  });
 });
 
 // Close panel when clicking outside

@@ -8,6 +8,14 @@ let isLargeFontActive = false;
 let lastKnownFontSize = DEFAULT_FONT_SIZE;
 let wasResetForBlocklist = false;
 
+// Initialize font state on startup
+chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
+  isLargeFontActive = details.pixelSize > DEFAULT_FONT_SIZE;
+  if (isLargeFontActive) {
+    lastKnownFontSize = details.pixelSize;
+  }
+});
+
 function isUrlInBlocklist(url: string, blocklist: string[]): boolean {
   if (!url || !blocklist || blocklist.length === 0) return false;
   
@@ -128,7 +136,7 @@ chrome.tabs.onUpdated.addListener((_, changeInfo, tab) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'toggleFontSize') {
     chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
       toggleSize(details.pixelSize, message.size);
@@ -157,5 +165,41 @@ chrome.runtime.onMessage.addListener((message) => {
         });
       }
     });
+  } else if (message.action === 'immediateRestore') {
+    // Immediate restore from content script for non-blocked pages
+    if (wasResetForBlocklist && lastKnownFontSize > DEFAULT_FONT_SIZE) {
+      // Fast path: restore immediately if we know font was reset
+      getSizes((settings) => {
+        if (!isUrlInBlocklist(message.url, settings.blocklist)) {
+          chrome.fontSettings.setMinimumFontSize({ pixelSize: settings.minimumFontSize });
+          isLargeFontActive = true;
+          wasResetForBlocklist = false;
+        }
+      });
+    } else {
+      // Slower path: check current state and apply if needed
+      getSizes((settings) => {
+        if (!isUrlInBlocklist(message.url, settings.blocklist)) {
+          chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
+            if (details.pixelSize < settings.minimumFontSize) {
+              chrome.fontSettings.setMinimumFontSize({ pixelSize: settings.minimumFontSize });
+              isLargeFontActive = true;
+            }
+          });
+        }
+      });
+    }
+  } else if (message.action === 'checkFontState') {
+    // Check if font should be restored for non-blocked pages
+    getSizes((settings) => {
+      if (!isUrlInBlocklist(message.url, settings.blocklist)) {
+        // Return whether font should be restored
+        const shouldRestore = wasResetForBlocklist && lastKnownFontSize > DEFAULT_FONT_SIZE;
+        sendResponse({ shouldRestore });
+      } else {
+        sendResponse({ shouldRestore: false });
+      }
+    });
+    return true; // Indicates we will send a response asynchronously
   }
 });
