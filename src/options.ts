@@ -1,6 +1,7 @@
 import { FontSizeSettings } from './types';
 
 const DEFAULT_LARGE = 18;
+const DEFAULT_BLOCKLIST: string[] = [];
 
 function updatePreview(size: number): void {
   const previewElement = document.getElementById('fontPreviewText');
@@ -55,10 +56,13 @@ function saveOptions(): void {
 
   const fontNum = parseInt(fontSize);
 
-  chrome.storage.sync.set({
-    minimumFontSize: fontNum
-  }, () => {
-    showStatus('Settings saved successfully!');
+  chrome.storage.sync.get({ blocklist: DEFAULT_BLOCKLIST }, (items) => {
+    chrome.storage.sync.set({
+      minimumFontSize: fontNum,
+      blocklist: items.blocklist
+    }, () => {
+      showStatus('Settings saved successfully!');
+    });
   });
 }
 
@@ -69,10 +73,76 @@ function resetToDefaults(): void {
 
 function restoreOptions(): void {
   chrome.storage.sync.get({
-    minimumFontSize: DEFAULT_LARGE
+    minimumFontSize: DEFAULT_LARGE,
+    blocklist: DEFAULT_BLOCKLIST
   }, (items) => {
     const settings = items as FontSizeSettings;
     syncInputs(settings.minimumFontSize.toString());
+    renderBlocklist(settings.blocklist);
+  });
+}
+
+function renderBlocklist(blocklist: string[]): void {
+  const listElement = document.getElementById('blocklistList');
+  if (!listElement) return;
+
+  if (blocklist.length === 0) {
+    listElement.innerHTML = '<div class="mfst-blocklist__empty">No blocked sites</div>';
+    return;
+  }
+
+  listElement.innerHTML = blocklist.map((pattern, index) => `
+    <div class="mfst-blocklist__item">
+      <span>${pattern}</span>
+      <button class="mfst-btn mfst-btn--remove" data-index="${index}">Remove</button>
+    </div>
+  `).join('');
+
+  // Add event listeners to remove buttons
+  listElement.querySelectorAll('.mfst-btn--remove').forEach(button => {
+    button.addEventListener('click', (e) => {
+      const index = parseInt((e.target as HTMLElement).dataset.index!);
+      removeFromBlocklist(index);
+    });
+  });
+}
+
+function addToBlocklist(): void {
+  const input = document.getElementById('blocklistInput') as HTMLInputElement;
+  const pattern = input.value.trim();
+  
+  if (!pattern) {
+    showStatus('Please enter a website pattern.', false);
+    return;
+  }
+
+  chrome.storage.sync.get({ blocklist: DEFAULT_BLOCKLIST }, (items) => {
+    const blocklist = [...items.blocklist];
+    
+    if (blocklist.includes(pattern)) {
+      showStatus('This pattern is already in the blocklist.', false);
+      return;
+    }
+    
+    blocklist.push(pattern);
+    
+    chrome.storage.sync.set({ blocklist }, () => {
+      input.value = '';
+      renderBlocklist(blocklist);
+      showStatus('Pattern added to blocklist!');
+    });
+  });
+}
+
+function removeFromBlocklist(index: number): void {
+  chrome.storage.sync.get({ blocklist: DEFAULT_BLOCKLIST }, (items) => {
+    const blocklist = [...items.blocklist];
+    blocklist.splice(index, 1);
+    
+    chrome.storage.sync.set({ blocklist }, () => {
+      renderBlocklist(blocklist);
+      showStatus('Pattern removed from blocklist!');
+    });
   });
 }
 
@@ -81,6 +151,8 @@ function setupEventListeners(): void {
   const fontRangeInput = document.getElementById('fontRange') as HTMLInputElement;
   const saveButton = document.getElementById('save');
   const resetButton = document.getElementById('reset');
+  const addBlocklistButton = document.getElementById('addToBlocklist');
+  const blocklistInput = document.getElementById('blocklistInput') as HTMLInputElement;
 
   if (fontSizeInput && fontRangeInput) {
     fontSizeInput.addEventListener('input', (e) => {
@@ -102,6 +174,18 @@ function setupEventListeners(): void {
 
   if (resetButton) {
     resetButton.addEventListener('click', resetToDefaults);
+  }
+
+  if (addBlocklistButton) {
+    addBlocklistButton.addEventListener('click', addToBlocklist);
+  }
+
+  if (blocklistInput) {
+    blocklistInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addToBlocklist();
+      }
+    });
   }
 }
 

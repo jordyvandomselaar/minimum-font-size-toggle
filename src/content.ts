@@ -1,5 +1,8 @@
 
 const DEFAULT_LARGE = 18;
+const DEFAULT_BLOCKLIST: string[] = [];
+
+let currentUrl = '';
 
 let panelElement: HTMLElement | null = null;
 let isDragging = false;
@@ -24,9 +27,19 @@ function createFloatingPanel(): HTMLElement {
         <div class="mfst-setting__current-size" id="fontPreview">Current: 18px</div>
       </div>
       
+      <div class="mfst-setting">
+        <label class="mfst-setting__label">Site Blocklist</label>
+        <div class="mfst-blocklist__current-site">
+          <span id="currentSiteUrl">Current site: loading...</span>
+          <button id="toggleBlocklist" class="mfst-btn mfst-btn--small mfst-btn--toggle-block">Add to Blocklist</button>
+        </div>
+        <div class="mfst-blocklist__status" id="blocklistStatus"></div>
+      </div>
+      
       <div class="mfst-panel__button-container">
         <button id="saveSettings" class="mfst-btn mfst-btn--save">Save</button>
         <button id="resetDefaults" class="mfst-btn mfst-btn--reset">Reset</button>
+        <button id="manageBlocklist" class="mfst-btn mfst-btn--manage">Manage Blocklist</button>
       </div>
       
       <div id="panelStatus" class="mfst-status"></div>
@@ -190,6 +203,55 @@ function createFloatingPanel(): HTMLElement {
       background: #e0e0e0;
     }
     
+    #font-size-panel .mfst-btn--manage {
+      background: #6c757d;
+      color: white;
+      flex: 1;
+      font-size: 10px;
+    }
+    
+    #font-size-panel .mfst-btn--manage:hover {
+      background: #5a6268;
+    }
+    
+    #font-size-panel .mfst-btn--small {
+      padding: 4px 8px;
+      font-size: 10px;
+      border-radius: 3px;
+    }
+    
+    #font-size-panel .mfst-btn--toggle-block {
+      background: #dc3545;
+      color: white;
+      margin-left: 8px;
+    }
+    
+    #font-size-panel .mfst-btn--toggle-block:hover {
+      background: #c82333;
+    }
+    
+    #font-size-panel .mfst-btn--toggle-block.blocked {
+      background: #28a745;
+    }
+    
+    #font-size-panel .mfst-btn--toggle-block.blocked:hover {
+      background: #218838;
+    }
+    
+    #font-size-panel .mfst-blocklist__current-site {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 11px;
+    }
+    
+    #font-size-panel .mfst-blocklist__status {
+      font-size: 10px;
+      color: #666;
+      margin-top: 2px;
+    }
+    
     #font-size-panel .mfst-status {
       margin-top: 8px;
       padding: 4px 8px;
@@ -259,7 +321,72 @@ function validateInput(value: string): boolean {
 function applyFontSizeLive(fontSize: number): void {
   chrome.runtime.sendMessage({
     action: 'setFontSize',
-    size: fontSize
+    size: fontSize,
+    url: window.location.href
+  });
+}
+
+function isUrlInBlocklist(url: string, blocklist: string[]): boolean {
+  const urlToCheck = url.toLowerCase();
+  return blocklist.some(pattern => {
+    const patternLower = pattern.toLowerCase();
+    return urlToCheck.includes(patternLower);
+  });
+}
+
+function getCurrentSitePattern(): string {
+  const url = new URL(window.location.href);
+  return url.hostname;
+}
+
+function updateCurrentSiteDisplay(): void {
+  currentUrl = getCurrentSitePattern();
+  const currentSiteElement = document.getElementById('currentSiteUrl');
+  if (currentSiteElement) {
+    currentSiteElement.textContent = `Current site: ${currentUrl}`;
+  }
+}
+
+function updateBlocklistButton(blocklist: string[]): void {
+  const button = document.getElementById('toggleBlocklist') as HTMLButtonElement;
+  const status = document.getElementById('blocklistStatus');
+  
+  if (button && status) {
+    const isBlocked = isUrlInBlocklist(window.location.href, blocklist);
+    
+    if (isBlocked) {
+      button.textContent = 'Remove from Blocklist';
+      button.classList.add('blocked');
+      status.textContent = 'Font changes disabled for this site';
+      status.style.color = '#dc3545';
+    } else {
+      button.textContent = 'Add to Blocklist';
+      button.classList.remove('blocked');
+      status.textContent = 'Font changes enabled for this site';
+      status.style.color = '#28a745';
+    }
+  }
+}
+
+function toggleCurrentSiteBlocklist(): void {
+  chrome.storage.sync.get({
+    blocklist: DEFAULT_BLOCKLIST
+  }, (items) => {
+    const blocklist = [...items.blocklist];
+    const pattern = getCurrentSitePattern();
+    const index = blocklist.indexOf(pattern);
+    
+    if (index > -1) {
+      blocklist.splice(index, 1);
+      showStatus('Site removed from blocklist');
+    } else {
+      blocklist.push(pattern);
+      showStatus('Site added to blocklist');
+    }
+    
+    chrome.storage.sync.set({ blocklist }, () => {
+      updateBlocklistButton(blocklist);
+    });
   });
 }
 
@@ -289,9 +416,11 @@ function resetToDefaults(): void {
 
 function loadSettings(): void {
   chrome.storage.sync.get({
-    minimumFontSize: DEFAULT_LARGE
+    minimumFontSize: DEFAULT_LARGE,
+    blocklist: DEFAULT_BLOCKLIST
   }, (items) => {
     syncInputs(items.minimumFontSize.toString());
+    updateBlocklistButton(items.blocklist);
   });
 }
 
@@ -301,6 +430,8 @@ function setupPanelEventListeners(): void {
   const saveButton = document.getElementById('saveSettings');
   const resetButton = document.getElementById('resetDefaults');
   const closeButton = document.getElementById('closeFontPanel');
+  const toggleBlocklistButton = document.getElementById('toggleBlocklist');
+  const manageBlocklistButton = document.getElementById('manageBlocklist');
 
   if (fontSizeInput && fontRangeInput) {
     fontSizeInput.addEventListener('input', (e) => {
@@ -326,6 +457,16 @@ function setupPanelEventListeners(): void {
 
   if (closeButton) {
     closeButton.addEventListener('click', hidePanel);
+  }
+
+  if (toggleBlocklistButton) {
+    toggleBlocklistButton.addEventListener('click', toggleCurrentSiteBlocklist);
+  }
+
+  if (manageBlocklistButton) {
+    manageBlocklistButton.addEventListener('click', () => {
+      chrome.runtime.openOptionsPage();
+    });
   }
 
   // Make panel draggable
@@ -394,6 +535,7 @@ function showPanel(): void {
     }
   }, 10);
   
+  updateCurrentSiteDisplay();
   loadSettings();
   setupPanelEventListeners();
 }

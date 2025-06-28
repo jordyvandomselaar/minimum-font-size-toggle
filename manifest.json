@@ -21,7 +21,8 @@
         "fontSettings",
         "storage",
         "contextMenus",
-        "activeTab"
+        "activeTab",
+        "tabs"
     ],
     "options_page": "options.html"
 }

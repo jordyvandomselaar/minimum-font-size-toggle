@@ -173,6 +173,78 @@
             color: #666;
             line-height: 1.5;
         }
+        
+        .mfst-blocklist__input-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .mfst-blocklist__input-container input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .mfst-blocklist__input-container input[type="text"]:focus {
+            outline: none;
+            border-color: #007acc;
+            box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+        }
+        
+        .mfst-btn--add {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+        }
+        
+        .mfst-btn--add:hover {
+            background: #218838;
+        }
+        
+        .mfst-blocklist__list {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .mfst-blocklist__item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        
+        .mfst-blocklist__item:last-child {
+            border-bottom: none;
+        }
+        
+        .mfst-blocklist__item:hover {
+            background: #f8f9fa;
+        }
+        
+        .mfst-btn--remove {
+            background: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .mfst-btn--remove:hover {
+            background: #c82333;
+        }
+        
+        .mfst-blocklist__empty {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
         </style>
     </head>
     <body>
@@ -193,6 +265,20 @@
                 <div class="mfst-setting__current-size" id="fontPreview">Current: 18px</div>
                 <div class="mfst-setting__preview-text" id="fontPreviewText" style="font-size: 18px;">
                     This is how text will look with the selected font size.
+                </div>
+            </div>
+            
+            <div class="mfst-setting">
+                <label class="mfst-setting__label">Site Blocklist</label>
+                <p class="mfst-description" style="margin-bottom: 12px; font-size: 12px;">
+                    Add website patterns where font size changes should not be applied. Use domain names or partial URLs.
+                </p>
+                <div class="mfst-blocklist__input-container">
+                    <input type="text" id="blocklistInput" placeholder="e.g., example.com or docs.google.com">
+                    <button id="addToBlocklist" class="mfst-btn mfst-btn--add">Add</button>
+                </div>
+                <div class="mfst-blocklist__list" id="blocklistList">
+                    <!-- Blocklist items will be populated here -->
                 </div>
             </div>
             
