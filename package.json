@@ -1,0 +1,17 @@
+{
+  "name": "minimum-font-size-toggle",
+  "version": "1.0.0",
+  "description": "Quickly toggle the minimum font size between two pre-set values.",
+  "scripts": {
+    "build": "bun run build:ts && bun run build:extension",
+    "build:ts": "bun build src/background.ts --outdir dist --target browser && bun build src/options.ts --outdir dist --target browser",
+    "build:extension": "bun run copy:static",
+    "copy:static": "cp -r src/static/* dist/ && cp manifest.json dist/",
+    "dev": "bun run build:ts --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.0.0"
+  }
+}
