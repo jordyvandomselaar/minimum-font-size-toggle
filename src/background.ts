@@ -8,12 +8,79 @@ let isLargeFontActive = false;
 let lastKnownFontSize = DEFAULT_FONT_SIZE;
 let wasResetForBlocklist = false;
 
+// Icon state management
+function updateIcon(tabId?: number): void {
+  const options: chrome.action.BadgeTextDetails = {
+    text: isLargeFontActive ? 'ON' : 'OFF'
+  };
+  
+  if (tabId) {
+    options.tabId = tabId;
+  }
+  
+  chrome.action.setBadgeText(options);
+  
+  const colorOptions: chrome.action.BadgeBackgroundColorDetails = {
+    color: isLargeFontActive ? '#28a745' : '#6c757d'
+  };
+  
+  if (tabId) {
+    colorOptions.tabId = tabId;
+  }
+  
+  chrome.action.setBadgeBackgroundColor(colorOptions);
+  
+  // Update title to reflect current state
+  const titleOptions: chrome.action.TitleDetails = {
+    title: `Font Size: ${isLargeFontActive ? 'Large' : 'Default'} (Click to toggle)`
+  };
+  
+  if (tabId) {
+    titleOptions.tabId = tabId;
+  }
+  
+  chrome.action.setTitle(titleOptions);
+}
+
+function updateIconForBlockedSite(tabId?: number): void {
+  const options: chrome.action.BadgeTextDetails = {
+    text: '🚫'
+  };
+  
+  if (tabId) {
+    options.tabId = tabId;
+  }
+  
+  chrome.action.setBadgeText(options);
+  
+  const colorOptions: chrome.action.BadgeBackgroundColorDetails = {
+    color: '#dc3545'
+  };
+  
+  if (tabId) {
+    colorOptions.tabId = tabId;
+  }
+  
+  chrome.action.setBadgeBackgroundColor(colorOptions);
+  
+  const titleOptions: chrome.action.TitleDetails = {
+    title: 'Font changes disabled for this site (Click to open options)'
+  };
+  
+  if (tabId) {
+    titleOptions.tabId = tabId;
+  }
+  
+  chrome.action.setTitle(titleOptions);
+}
+
 // Initialize font state on startup
 chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
   isLargeFontActive = details.pixelSize > DEFAULT_FONT_SIZE;
   if (isLargeFontActive) {
     lastKnownFontSize = details.pixelSize;
   }
+  updateIcon();
 });
 
 function isUrlInBlocklist(url: string, blocklist: string[]): boolean {
@@ -33,6 +100,7 @@ function resetFontSize(): void {
     chrome.fontSettings.setMinimumFontSize({ pixelSize: DEFAULT_FONT_SIZE });
     isLargeFontActive = false;
     wasResetForBlocklist = true;
+    updateIcon();
   });
 }
 
@@ -44,11 +112,12 @@ function restoreFontSize(): void {
       chrome.fontSettings.setMinimumFontSize({ pixelSize: settings.minimumFontSize });
       isLargeFontActive = true;
       wasResetForBlocklist = false;
+      updateIcon();
     });
   }
 }
 
-function checkAndUpdateFontForUrl(url: string): void {
+function checkAndUpdateFontForUrl(url: string, tabId?: number): void {
   if (!url) return;
   
   getSizes((settings) => {
@@ -59,16 +128,18 @@ function checkAndUpdateFontForUrl(url: string): void {
       if (!wasResetForBlocklist) {
         resetFontSize();
       }
+      updateIconForBlockedSite(tabId);
     } else {
       // Restore font size if on a non-blocked site and was previously reset
       if (wasResetForBlocklist) {
         restoreFontSize();
       }
+      updateIcon(tabId);
     }
   });
 }
 
-function toggleSize(currentSize: number, targetSize: number): void {
+function toggleSize(currentSize: number, targetSize: number, tabId?: number): void {
   if (isLargeFontActive || currentSize >= targetSize) {
     // Switch back to default (0 = browser default)
     chrome.fontSettings.setMinimumFontSize({ pixelSize: DEFAULT_FONT_SIZE });
@@ -80,6 +151,7 @@ function toggleSize(currentSize: number, targetSize: number): void {
     isLargeFontActive = true;
     wasResetForBlocklist = false; // This is a manual toggle, not a blocklist reset
   }
+  updateIcon(tabId);
 }
 
 function getSizes(callback: (result: FontSizeSettings) => void): void {
@@ -98,8 +170,12 @@ chrome.action.onClicked.addListener((tab) => {
       if (!isUrlInBlocklist(tab.url!, results.blocklist)) {
         toggleSize(
           details.pixelSize,
-          parseFloat(results.minimumFontSize.toString())
+          parseFloat(results.minimumFontSize.toString()),
+          tab.id
         );
+      } else {
+        // For blocked sites, open the options page
+        chrome.runtime.openOptionsPage();
       }
     });
   });
@@ -123,23 +199,24 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.tabs.onActivated.addListener((activeInfo) => {
   chrome.tabs.get(activeInfo.tabId, (tab) => {
     if (tab.url) {
-      checkAndUpdateFontForUrl(tab.url);
+      checkAndUpdateFontForUrl(tab.url, activeInfo.tabId);
     }
   });
 });
 
 // Monitor tab updates (navigation within a tab)
-chrome.tabs.onUpdated.addListener((_, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Check on both loading and complete to catch early and ensure final state
   if ((changeInfo.status === 'loading' || changeInfo.status === 'complete') && tab.url) {
-    checkAndUpdateFontForUrl(tab.url);
+    checkAndUpdateFontForUrl(tab.url, tabId);
   }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'toggleFontSize') {
     chrome.fontSettings.getMinimumFontSize((details: FontSizeDetails) => {
-      toggleSize(details.pixelSize, message.size);
+      const tabId = sender.tab?.id;
+      toggleSize(details.pixelSize, message.size, tabId);
     });
   } else if (message.action === 'setFontSize') {
     // Check if the URL is in the blocklist before applying font changes
@@ -148,6 +225,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.fontSettings.setMinimumFontSize({ pixelSize: message.size });
         isLargeFontActive = message.size > DEFAULT_FONT_SIZE;
         wasResetForBlocklist = false; // This is a manual change, not a blocklist reset
+        
+        // Update icon for the specific tab that sent the message
+        const tabId = sender.tab?.id;
+        updateIcon(tabId);
       }
     });
   } else if (message.action === 'immediateReset') {
@@ -174,6 +255,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           chrome.fontSettings.setMinimumFontSize({ pixelSize: settings.minimumFontSize });
           isLargeFontActive = true;
           wasResetForBlocklist = false;
+          updateIcon();
         }
       });
     } else {
@@ -184,6 +266,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (details.pixelSize < settings.minimumFontSize) {
               chrome.fontSettings.setMinimumFontSize({ pixelSize: settings.minimumFontSize });
               isLargeFontActive = true;
+              updateIcon();
             }
           });
         }

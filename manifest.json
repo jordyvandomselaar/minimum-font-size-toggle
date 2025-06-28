@@ -7,6 +7,9 @@
         "default_icon": "icon32.png",
         "default_title": "Minimum Font Size Toggle"
     },
+    "icons": {
+        "32": "icon32.png"
+    },
     "background": {
         "service_worker": "background.js"
     },
