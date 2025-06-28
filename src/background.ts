@@ -26,3 +26,23 @@ chrome.action.onClicked.addListener(() => {
     });
   });
 });
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'openFontPanel',
+    title: 'Adjust Font Size',
+    contexts: ['all']
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'openFontPanel' && tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { action: 'toggleFontPanel' });
+  }
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === 'applyFontSize') {
+    chrome.fontSettings.setMinimumFontSize({ pixelSize: message.size });
+  }
+});

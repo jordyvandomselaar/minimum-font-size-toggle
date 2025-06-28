@@ -10,9 +10,18 @@
     "background": {
         "service_worker": "background.js"
     },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_end"
+        }
+    ],
     "permissions": [
         "fontSettings",
-        "storage"
+        "storage",
+        "contextMenus",
+        "activeTab"
     ],
     "options_page": "options.html"
 }
